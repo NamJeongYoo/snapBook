@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: snapbook-test
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+  kafka:
+    consumer:
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: "com.interstellar.snapbook.kafka"
+
+logging:
+  level:
+    root: WARN
+    com.interstellar.snapbook: INFO
+
+app:
+  queue:
+    batch-size: 10
+    allow-interval-ms: 100
+  kafka:
+    topic:
+      reservation: test-reservation-events

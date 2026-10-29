@@ -13,7 +13,7 @@ Redis 대기열로 트래픽을 제어하고, Redis Lua Script로 재고를 원�
 | Cache/Queue | Redis 7 (Lettuce) |
 | Message Queue | Apache Kafka (Confluent 7.5.0, Zookeeper 모드) |
 | Validation | Jakarta Bean Validation |
-| Test | JUnit 5, Testcontainers 1.20.4 |
+| Test | JUnit 5, Testcontainers 2.0.5 (PostgreSQL / Redis / Kafka) |
 | Container | Docker Compose |
 
 ## 시스템 아키텍처
@@ -122,7 +122,7 @@ PostgreSQL, Redis, Zookeeper, Kafka 컨테이너가 실행됩니다. 테이블�
 ./gradlew test
 ```
 
-> 테스트는 Testcontainers를 사용하므로 Docker가 실행 중이어야 합니다. 아래 [알려진 제약 사항](#알려진-제약-사항)도 참고하세요.
+> 테스트는 Testcontainers로 PostgreSQL, Redis, Kafka 컨테이너를 자동으로 띄우므로 Docker만 실행 중이면 됩니다. (`docker-compose up` 불필요)
 
 ## API 엔드포인트
 
@@ -372,9 +372,17 @@ app:
 
 ## 테스트
 
+### 테스트 인프라
+
+`TestcontainersConfiguration`이 `@ServiceConnection`으로 PostgreSQL(`postgres:16`), Redis(`redis:7-alpine`), Kafka(`apache/kafka-native:3.8.0`) 컨테이너를 띄우고 접속 정보를 자동으로 주입합니다. `@SpringBootTest` 테스트는 `@Import(TestcontainersConfiguration.class)`로 이를 사용합니다.
+
+| 테스트 | 검증 내용 |
+|--------|-----------|
+| `SnapBookApplicationTests` | 전체 애플리케이션 컨텍스트 로딩 |
+
 ### 동시성 테스트
 
-`StockServiceTest`는 Testcontainers로 Redis 컨테이너를 띄워 재고 로직을 검증합니다.
+`StockServiceTest`는 실제 Redis 컨테이너에서 재고 로직을 검증합니다.
 
 | 테스트 | 검증 내용 |
 |--------|-----------|
@@ -391,7 +399,6 @@ app:
 
 ## 알려진 제약 사항
 
-- **테스트 실행 환경**: 테스트용 `application.yml`에 datasource URL이 없어 `@SpringBootTest`로 전체 컨텍스트를 띄우는 테스트(`SnapBookApplicationTests`, `StockServiceTest`)는 PostgreSQL 연결 설정 없이는 컨텍스트 로딩에 실패합니다. Testcontainers PostgreSQL/Kafka 의존성은 선언되어 있지만 아직 테스트에 연결되지 않았습니다.
 - **자동 입장 허용 미구현**: `app.queue.allow-interval-ms` 설정은 있지만 스케줄러가 없어 입장 허용은 `/queue/allow` 수동 호출로만 이루어집니다.
 - **DB 재고 미동기화**: 재고 차감은 Redis에서만 이루어지며, `events.available_tickets` 컬럼은 예약 후에도 갱신되지 않습니다. 잔여 재고는 `/stock` API(Redis)로 확인해야 합니다.
 - **보상 트랜잭션 없음**: Kafka 발행 또는 Consumer 처리가 실패해도 차감된 Redis 재고는 복원되지 않습니다. (`StockService.restoreStock`은 구현되어 있으나 호출되지 않음)
